@@ -1,0 +1,24 @@
+data_ingestion:
+  test_size: 0.20
+  use_sentiment140: false
+  sentiment140_sample: 40000
+  use_sst2: false
+  use_goemotions: false
+  use_youtube_scraped: false
+  balance_strategy: "none"
+
+# Extended dataset for BERT training (multi-source, 152K rows)
+bert_data_ingestion:
+  use_sentiment140: true
+  sentiment140_sample: 40000
+  use_sst2: true
+  use_goemotions: true
+  use_youtube_scraped: true
+  balance_strategy: "undersample"
+
+model_building:
+  ngram_range: [1, 3]  
+  max_features: 10000
+  learning_rate: 0.09
+  max_depth: 20
+  n_estimators: 367
