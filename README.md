@@ -2,7 +2,7 @@
 
 A production-grade MLOps project that analyzes YouTube comment sentiment in real time. Built as a final year project, it features a full DVC/MLflow pipeline, a Flask REST API, and a dark-themed single-page frontend.
 
-**Live demo:** `http://65.0.138.195/app`
+**Live demo:** `http://3.110.41.116/app`
 
 ---
 
@@ -111,7 +111,7 @@ python scripts/scrape_youtube_training_data.py
 
 ## API Endpoints
 
-Base URL: `http://65.0.138.195`
+Base URL: `http://3.110.41.116`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -130,14 +130,14 @@ Base URL: `http://65.0.138.195`
 
 **Example — analyze a video:**
 ```bash
-curl -X POST http://65.0.138.195/analyze_video \
+curl -X POST http://3.110.41.116/analyze_video \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "max_comments": 100, "sort_by": "top"}'
 ```
 
 **Example — predict comments:**
 ```bash
-curl -X POST http://65.0.138.195/predict \
+curl -X POST http://3.110.41.116/predict \
   -H "Content-Type: application/json" \
   -d '{"comments": ["This is amazing!", "Terrible video", "It was okay"]}'
 ```
@@ -211,8 +211,8 @@ bash start.sh
 ```
 
 **4. Open the app:**
-- Frontend: `http://65.0.138.195/app`
-- MLflow UI: `http://65.0.138.195/mlflow/`
+- Frontend: `http://3.110.41.116/app`
+- MLflow UI: `http://3.110.41.116/mlflow/`
 
 ---
 
