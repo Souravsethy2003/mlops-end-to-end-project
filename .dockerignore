@@ -1,0 +1,6 @@
+venv/
+mlruns/
+mlartifacts/
+.git/
+__pycache__/
+*.log

@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y libgomp1
 COPY flask_app/ /app/
 
 COPY tfidf_vectorizer.pkl /app/tfidf_vectorizer.pkl
+COPY lgbm_model.pkl /app/lgbm_model.pkl
 
 RUN pip install -r requirements.txt
 
