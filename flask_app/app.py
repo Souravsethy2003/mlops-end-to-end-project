@@ -28,6 +28,26 @@ import xml.etree.ElementTree as ET
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# ── BERT lazy loader ─────────────────────────────────────────────────────────
+_bert_model      = None
+_bert_tokenizer  = None
+BERT_MODEL_PATH  = "/home/ubuntu/Mlflow/BERT_DATASET/bert_model"
+# DistilBert output indices → our sentiment labels
+_BERT_DECODE     = {0: -1, 1: 0, 2: 1}
+
+def _load_bert():
+    """Load DistilBERT model + tokenizer once; reuse afterwards."""
+    global _bert_model, _bert_tokenizer
+    if _bert_model is None:
+        app.logger.info("Loading DistilBERT from %s …", BERT_MODEL_PATH)
+        from transformers import DistilBertTokenizerFast, DistilBertForSequenceClassification
+        import torch
+        _bert_tokenizer = DistilBertTokenizerFast.from_pretrained(BERT_MODEL_PATH)
+        _bert_model     = DistilBertForSequenceClassification.from_pretrained(BERT_MODEL_PATH)
+        _bert_model.eval()
+        app.logger.info("DistilBERT loaded successfully.")
+    return _bert_model, _bert_tokenizer
+
 # Define the preprocessing function
 def preprocess_comment(comment):
     """Apply preprocessing transformations to a comment."""
@@ -68,7 +88,7 @@ def load_model_and_vectorizer(model_name, model_version, vectorizer_path):
     return model, vectorizer
 
 # Initialize the model and vectorizer
-model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model", "1", "/home/ubuntu/Mlflow/tfidf_vectorizer.pkl")
+model, vectorizer = load_model_and_vectorizer("yt_chrome_plugin_model", "2", "/home/ubuntu/Mlflow/tfidf_vectorizer.pkl")
 
 
 # model = joblib.load("/app/lgbm_model.pkl")
@@ -111,14 +131,20 @@ def predict_with_timestamps():
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
-    comments = data.get('comments')
+    comments       = data.get('comments')
+    selected_model = data.get('model', 'lgbm')
 
     if not comments:
         return jsonify({"error": "No comments provided"}), 400
 
     raw_items = [{'text': c, 'votes': 0, 'timestamp': None} for c in comments]
     try:
-        results = _predict(raw_items)
+        if selected_model == 'bert':
+            results = _predict_bert(raw_items)
+        else:
+            results = _predict(raw_items)
+            for r in results:
+                r['model_used'] = 'lgbm'
     except Exception as e:
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
@@ -487,6 +513,53 @@ def _predict(raw_items):
     return results
 
 
+def _predict_bert(raw_items):
+    """Run DistilBERT sentiment prediction; same output schema as _predict()."""
+    import torch
+    import numpy as np
+    bert_m, bert_t = _load_bert()
+    texts  = [c['text'] for c in raw_items]
+    BATCH  = 32
+    all_labels, all_probs = [], []
+    for i in range(0, len(texts), BATCH):
+        batch = texts[i:i + BATCH]
+        inputs = bert_t(
+            batch,
+            truncation=True,
+            padding=True,
+            max_length=128,
+            return_tensors='pt'
+        )
+        with torch.no_grad():
+            logits = bert_m(**inputs).logits
+        probs = torch.softmax(logits, dim=1).cpu().numpy()
+        preds = torch.argmax(logits, dim=1).cpu().numpy()
+        for pred, prob in zip(preds, probs):
+            all_labels.append(_BERT_DECODE[int(pred)])
+            all_probs.append(prob)
+
+    results = []
+    for c, label, prob in zip(raw_items, all_labels, all_probs):
+        tox      = _toxicity_score(c['text'])
+        is_spam, spam_reason = _spam_score(c['text'])
+        confidence = float(round(float(np.max(prob)), 3))
+        results.append({
+            "comment":        c['text'],
+            "sentiment":      str(label),
+            "confidence":     confidence,
+            "uncertain":      confidence < 0.55,
+            "votes":          c['votes'],
+            "timestamp":      c['timestamp'],
+            "lang":           _detect_lang(c['text']),
+            "toxicity_score": tox,
+            "is_toxic":       tox >= 5,
+            "is_spam":        is_spam,
+            "spam_reason":    spam_reason,
+            "model_used":     "bert",
+        })
+    return results
+
+
 def _oembed(video_id):
     """Return (title, channel) for a video ID via YouTube oEmbed."""
     try:
@@ -561,10 +634,11 @@ def _channel_video_urls(channel_input, max_videos):
 @app.route('/analyze_video', methods=['POST'])
 def analyze_video():
     data = request.json
-    url = data.get('url', '').strip()
-    max_comments = int(data.get('max_comments', 100))
-    fetch_all = max_comments <= 0          # 0 = "all comments"
-    sort_mode = data.get('sort_by', 'top')
+    url            = data.get('url', '').strip()
+    max_comments   = int(data.get('max_comments', 100))
+    fetch_all      = max_comments <= 0          # 0 = "all comments"
+    sort_mode      = data.get('sort_by', 'top')
+    selected_model = data.get('model', 'lgbm')
 
     if not url:
         return jsonify({"error": "No URL provided"}), 400
@@ -596,7 +670,12 @@ def analyze_video():
         raw = random.sample(raw, max_comments)
 
     try:
-        results = _predict(raw)
+        if selected_model == 'bert':
+            results = _predict_bert(raw)
+        else:
+            results = _predict(raw)
+            for r in results:
+                r['model_used'] = 'lgbm'
     except Exception as e:
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
@@ -605,7 +684,8 @@ def analyze_video():
 
     return jsonify({"video_id": video_id, "title": title, "channel": channel,
                     "total": len(results), "results": results,
-                    "topics": topics, "insight": insight})
+                    "topics": topics, "insight": insight,
+                    "model_used": selected_model})
 
 
 @app.route('/get_topics', methods=['POST'])
