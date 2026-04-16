@@ -17,8 +17,18 @@ bert_data_ingestion:
   balance_strategy: "undersample"
 
 model_building:
-  ngram_range: [1, 3]  
+  ngram_range: [1, 3]
   max_features: 10000
   learning_rate: 0.09
   max_depth: 20
   n_estimators: 367
+
+bert_model:
+  learning_rate: 3e-5
+  epochs: 2
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  max_length: 128
+  warmup_steps: 200
+  weight_decay: 0.01
+  max_train_samples: 15000
