@@ -4,7 +4,9 @@
 
 SentimentScope is a YouTube comment sentiment analysis platform with a LightGBM + TF-IDF pipeline, Flask API, and a dark-themed frontend. For a final year project, the biggest gap is **model sophistication** — a single gradient-boosted tree on TF-IDF features is baseline-level. Adding a BERT-based model with proper comparison, plus richer analysis features, transforms this into a research-grade project.
 
-**Current stack**: LightGBM (3-class) / TF-IDF (10K features, 1-3 grams) / MLflow / DVC / Flask / Nginx / Single-page frontend
+**Current stack**: LightGBM (3-class) + DistilBERT (3-class) / TF-IDF (10K features, 1-3 grams) / MLflow / DVC / Flask / Nginx / Dual-model frontend
+
+**BERT model status**: ✅ Trained on Google Colab (T4 GPU) — 77,120 rows (Reddit + TweetEval), 3 epochs, final accuracy 79.4%, macro F1 0.789. Model stored in `BERT_DATASET/bert_model/`. Logged to MLflow experiment `bert-sentiment` (run: `distilbert-base-uncased-v1`, model version 1). Flask API now serves both models via `model=lgbm|bert` parameter. Frontend has model selector dropdown.
 
 **Current data**: ~30K Reddit comments (42% positive, 34% neutral, 22% negative) — too small and single-domain for robust sentiment analysis.
 
@@ -120,7 +122,11 @@ This is important for academic presentation:
 
 ---
 
-## Phase 1: BERT Model Integration & Comparative Study (Priority: CRITICAL)
+## Phase 1: BERT Model Integration & Comparative Study ✅ COMPLETE
+
+> **Done**: DistilBERT fine-tuned on Colab, model in `BERT_DATASET/bert_model/`, Flask serves both models, frontend has model selector, MLflow experiment logged.
+
+## Phase 1 (remaining): Comparative Study
 
 > This is the single most impactful addition for academic evaluation.
 
